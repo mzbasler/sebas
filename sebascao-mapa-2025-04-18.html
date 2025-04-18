@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sebas Cão Perdido - Mapa de Busca</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" />
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      font-family: Arial, sans-serif;
+      overflow: hidden;
+    }
+    .container-fluid {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      padding: 0;
+      overflow: hidden;
+    }
+    .main-content {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+    .sidebar {
+      flex: 0 0 300px;
+      height: 100%;
+      overflow-y: auto;
+      padding: 15px;
+      background: #f8f9fa;
+      box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+      z-index: 1000;
+      transition: all 0.3s ease;
+    }
+    .map-container {
+      flex: 1;
+      height: 100%;
+      position: relative;
+    }
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+    .sidebar-toggle {
+      display: none;
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1001;
+      background: white;
+      border: none;
+      border-radius: 4px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.2);
+      padding: 8px;
+      font-size: 1.2rem;
+    }
+    .map-title {
+      text-align: center;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #dee2e6;
+    }
+    .date-filter {
+      margin-bottom: 15px;
+      padding: 10px;
+      border-radius: 5px;
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .filter-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .route-item {
+      cursor: pointer;
+      padding: 10px;
+      margin-bottom: 8px;
+      border-radius: 4px;
+      background: rgba(66, 133, 244, 0.05);
+      border-left: 3px solid #4285f4;
+      transition: all 0.2s;
+    }
+    .route-item:hover {
+      background: rgba(66, 133, 244, 0.1);
+    }
+    .route-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .route-name {
+      display: flex;
+      align-items: center;
+      font-weight: bold;
+    }
+    .route-color {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 5px;
+    }
+    .route-hidden {
+      opacity: 0.5;
+      text-decoration: line-through;
+    }
+    .buffer-info {
+      padding: 10px;
+      margin-top: 15px;
+      background: #fff;
+      border-radius: 5px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .buffer-title {
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .buffer-title i {
+      margin-right: 5px;
+    }
+    .numbered-marker div {
+      border-radius: 50%;
+      width: 25px;
+      height: 25px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+      font-size: 12px;
+      border: 2px solid white;
+      box-shadow: 0 0 5px rgba(0,0,0,0.5);
+    }
+    .info-box {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      background: white;
+      padding: 10px 15px;
+      border-radius: 4px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+      max-width: 300px;
+      z-index: 1000;
+      font-size: 0.9rem;
+    }
+    .info-box h4 {
+      margin: 0 0 5px 0;
+      color: #e53935;
+      font-size: 1.1rem;
+    }
+    .info-box p {
+      margin: 5px 0;
+      font-size: 0.9rem;
+    }
+    .visibility-btn {
+      background: none;
+      border: none;
+      padding: 2px 5px;
+      line-height: 1;
+      color: #4285f4;
+      font-size: 1rem;
+    }
+    .center-btn {
+      background: none;
+      border: none;
+      padding: 2px 5px;
+      line-height: 1;
+      color: #33a02c;
+      font-size: 1rem;
+      margin-left: 5px;
+    }
+    .controls {
+      margin-bottom: 15px;
+    }
+    .form-switch {
+      padding-left: 2.5em;
+      margin-bottom: 0.8rem;
+    }
+    .route-list-container {
+      max-height: 300px;
+      overflow-y: auto;
+      margin-bottom: 15px;
+    }
+    .date-select {
+      border: 1px solid #ced4da;
+      border-radius: 0.25rem;
+      padding: 0.375rem 0.75rem;
+      width: 100%;
+    }
+    /* Estilo para o footer */
+    .footer {
+      background-color: #f8f9fa;
+      padding: 8px 15px;
+      text-align: center;
+      font-size: 0.8rem;
+      border-top: 1px solid #dee2e6;
+    }
+    /* Responsivo */
+    @media (max-width: 992px) {
+      .sidebar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        transform: translateX(-100%);
+        width: 85%;
+        max-width: 350px;
+      }
+      .sidebar.active {
+        transform: translateX(0);
+      }
+      .sidebar-toggle {
+        display: block;
+      }
+      .map-container {
+        width: 100%;
+      }
+      .info-box {
+        bottom: 10px;
+        right: 10px;
+        left: 10px;
+        max-width: none;
+        font-size: 0.8rem;
+      }
+    }
+    @media (max-width: 576px) {
+      .sidebar {
+        width: 100%;
+        max-width: 100%;
+      }
+      .info-box {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        border-radius: 0;
+        max-width: none;
+      }
+      .leaflet-control-zoom {
+        top: 50px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container-fluid">
+    <div class="main-content">
+      <button class="sidebar-toggle" id="sidebarToggle">
+        <i class="bi bi-list"></i>
+      </button>
+      
+      <div class="sidebar" id="sidebar">
+        <div class="map-title">
+          <h5><i class="bi bi-geo-alt-fill"></i> Sebas Cão - Mapa de Busca</h5>
+        </div>
+        
+        <div class="date-filter">
+          <div class="filter-header">
+            <strong><i class="bi bi-calendar-event"></i> Filtrar por data:</strong>
+          </div>
+          <select id="dateFilter" class="date-select">
+            <option value="all">Todas as datas</option>
+            <!-- Opções de datas serão adicionadas via JavaScript -->
+          </select>
+        </div>
+        
+        <div class="controls">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="routesToggle" checked>
+            <label class="form-check-label" for="routesToggle">
+              <i class="bi bi-signpost-2"></i> Mostrar rotas
+            </label>
+          </div>
+          
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="bufferToggle" checked>
+            <label class="form-check-label" for="bufferToggle">
+              <i class="bi bi-bullseye"></i> Mostrar áreas de busca
+            </label>
+          </div>
+        </div>
+        
+        <h6><i class="bi bi-signpost-2"></i> Rotas de Avistamento</h6>
+        <div id="routeList" class="route-list-container">
+          <!-- Rotas serão adicionadas via JavaScript -->
+          <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> Carregando rotas...
+          </div>
+        </div>
+        
+        <div id="bufferInfo" class="buffer-info">
+          <div class="buffer-title">
+            <i class="bi bi-bullseye"></i> Áreas de Busca
+          </div>
+          <div id="bufferDetails">
+            <!-- Detalhes de buffers serão adicionados via JavaScript -->
+            <p>Nenhuma área de busca definida.</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="map-container">
+        <div id="map"></div>
+        
+        <div class="info-box">
+          <h4><i class="bi bi-geo-alt-fill"></i> Sebas Cão</h4>
+          <p id="statusText">Carregando dados...</p>
+          <p><small>Último avistamento: <span id="lastSeen">--/--/----</span></small></p>
+        </div>
+      </div>
+    </div>
+    
+    <div class="footer">
+      Mapa gerado em: <span id="generatedDate">--/--/----</span> | <a href="#" id="aboutLink" data-bs-toggle="modal" data-bs-target="#aboutModal">Sobre este mapa</a>
+    </div>
+  </div>
+  
+  <!-- Modal de Sobre -->
+  <div class="modal fade" id="aboutModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Sobre este Mapa</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          <h6>Sebas Cão - Mapa de Busca</h6>
+          <p>Este mapa exibe os pontos de avistamento de Sebas Cão, que está perdido. Os pontos estão organizados por data e representam os locais onde o cão foi visto.</p>
+          <p>Se você viu este cachorro, entre em contato com: <br> <strong id="contactInfo">--</strong></p>
+          <div class="text-center">
+            <img id="petPhoto" class="img-fluid rounded my-3" style="max-height: 200px;" src="https://via.placeholder.com/300x200?text=Foto+do+Sebas" alt="Sebas Cão">
+          </div>
+          <p><small>Este mapa foi gerado usando a ferramenta PetTrack.</small></p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // Dados embutidos das rotas e buffers
+    const petTrackData = {"timestamp":"2025-04-18T17:20:39.353Z","routes":{"SEBAS - Copia.csv-08/04/2025-1744996831450":{"id":"SEBAS - Copia.csv-08/04/2025-1744996831450","date":"08/04/2025","fileName":"SEBAS - Copia.csv","color":"#E31A1C","visible":true,"points":[{"latitude":-30.02710989082143,"longitude":-51.19402977780834,"time":"09h00","number":1,"observation":"Pet Dreams","datetime":"2025-04-08T12:00:00.000Z"},{"latitude":-30.021685103440515,"longitude":-51.197075693815364,"time":"09h25","number":2,"observation":"Rua Coronel Bordini","datetime":"2025-04-08T12:25:00.000Z"},{"latitude":-30.02518300711733,"longitude":-51.20184694118059,"time":"09h26","number":3,"observation":"The Coffee Parcão","datetime":"2025-04-08T12:26:00.000Z"},{"latitude":-30.023298233023212,"longitude":-51.20158617340836,"time":"09h30","number":4,"observation":"Sheraton Porto Alegre Hotel","datetime":"2025-04-08T12:30:00.000Z"},{"latitude":-30.025934028590534,"longitude":-51.19539117524498,"time":"09h40","number":5,"observation":"Yami Café","datetime":"2025-04-08T12:40:00.000Z"},{"latitude":-30.021086407345415,"longitude":-51.19897481568686,"time":"09h50","number":6,"observation":"Hotel Ibis Porto Alegre","datetime":"2025-04-08T12:50:00.000Z"},{"latitude":-30.017645569046845,"longitude":-51.18760313928209,"time":"16h30","number":7,"observation":"Sakura Restaurante","datetime":"2025-04-08T19:30:00.000Z"},{"latitude":-30.02825464968943,"longitude":-51.19662835469689,"time":"18h00","number":8,"observation":"Jardim na Rua Mostardeiro","datetime":"2025-04-08T21:00:00.000Z"}]},"SEBAS - Copia.csv-09/04/2025-1744996831450":{"id":"SEBAS - Copia.csv-09/04/2025-1744996831450","date":"09/04/2025","fileName":"SEBAS - Copia.csv","color":"#B15928","visible":true,"points":[{"latitude":-30.027733395061336,"longitude":-51.16234392810173,"time":"07h30","number":1,"observation":"Shopping Iguatemi","datetime":"2025-04-09T10:30:00.000Z"},{"latitude":-30.027756329731194,"longitude":-51.16104478122733,"time":"07h55","number":2,"observation":"Esquina Nilo Peçanha x Antônio Carlos Berta","datetime":"2025-04-09T10:55:00.000Z"},{"latitude":-30.02264933127026,"longitude":-51.16252595314892,"time":"08h25","number":3,"observation":"Avenida Túlio de Rose","datetime":"2025-04-09T11:25:00.000Z"}]},"SEBAS - Copia.csv-10/04/2025-1744996831450":{"id":"SEBAS - Copia.csv-10/04/2025-1744996831450","date":"10/04/2025","fileName":"SEBAS - Copia.csv","color":"#581845","visible":true,"points":[{"latitude":-30.050338341890992,"longitude":-51.193576794026164,"time":"10h30","number":1,"observation":"Desconhecido","datetime":"2025-04-10T13:30:00.000Z"},{"latitude":-30.026136319201694,"longitude":-51.17503493107751,"time":"11h00","number":2,"observation":"Em direção à Avenida Anita Garibaldi","datetime":"2025-04-10T14:00:00.000Z"},{"latitude":-30.035400046378854,"longitude":-51.165171184155206,"time":"15h00","number":3,"observation":"Mercadinho próximo à Velocity","datetime":"2025-04-10T18:00:00.000Z"},{"latitude":-30.025772467220914,"longitude":-51.156234566764304,"time":"18h00","number":4,"observation":"Parque Germânia – Av. Ferdinand Kisslinger","datetime":"2025-04-10T21:00:00.000Z"},{"latitude":-30.028134031446324,"longitude":-51.170819520276794,"time":"21h00","number":5,"observation":"McDonald's","datetime":"2025-04-11T00:00:00.000Z"}]},"SEBAS - Copia.csv-11/04/2025-1744996831450":{"id":"SEBAS - Copia.csv-11/04/2025-1744996831450","date":"11/04/2025","fileName":"SEBAS - Copia.csv","color":"#B15928","visible":true,"points":[{"latitude":-30.020569396314276,"longitude":-51.18101141463827,"time":"00h30","number":1,"observation":"Zaffari Bordini","datetime":"2025-04-11T03:30:00.000Z"},{"latitude":-30.014894286669403,"longitude":-51.1797211957387,"time":"12h00","number":2,"observation":"Cemitério São João","datetime":"2025-04-11T15:00:00.000Z"},{"latitude":-30.020082833690058,"longitude":-51.19860251040326,"time":"17h00","number":3,"observation":"Correndo na Rua Quintino Bocaiúva","datetime":"2025-04-11T20:00:00.000Z"},{"latitude":-30.016624993511176,"longitude":-51.20032227955605,"time":"18h00","number":4,"observation":"Esquina da Rua Dr. Timóteo com Rua Chicago","datetime":"2025-04-11T21:00:00.000Z"},{"latitude":-29.99993983094967,"longitude":-51.20364667341189,"time":"18h00","number":5,"observation":"Em direção à Avenida Voluntários da Pátria","datetime":"2025-04-11T21:00:00.000Z"}]},"SEBAS - Copia.csv-12/04/2025-1744996831450":{"id":"SEBAS - Copia.csv-12/04/2025-1744996831450","date":"12/04/2025","fileName":"SEBAS - Copia.csv","color":"#3388FF","visible":true,"points":[{"latitude":-30.033749305469712,"longitude":-51.18103006857053,"time":"09h55","number":1,"observation":"Em direção ao Colégio Panamericano","datetime":"2025-04-12T12:55:00.000Z"},{"latitude":-30.019905264737243,"longitude":-51.19840136886906,"time":"12h20","number":2,"observation":"Desconhecido","datetime":"2025-04-12T15:20:00.000Z"},{"latitude":-30.019295351398792,"longitude":-51.198019526340225,"time":"12h50","number":3,"observation":"Lavanderia Golfinho","datetime":"2025-04-12T15:50:00.000Z"},{"latitude":-30.018015971085408,"longitude":-51.19782767642232,"time":"12h55","number":4,"observation":"Em direção ao bairro Moinhos de Vento","datetime":"2025-04-12T15:55:00.000Z"},{"latitude":-30.019975369743914,"longitude":-51.195176232590846,"time":"14h00","number":5,"observation":"Rua Nova York em direção à Rua Benjamin Constant","datetime":"2025-04-12T17:00:00.000Z"}]},"SEBAS - Copia.csv-13/04/2025-1744996831450":{"id":"SEBAS - Copia.csv-13/04/2025-1744996831450","date":"13/04/2025","fileName":"SEBAS - Copia.csv","color":"#FF5733","visible":true,"points":[{"latitude":-30.04805317987272,"longitude":-51.207868201982485,"time":"20h00","number":1,"observation":"Da Avenida Princesa Isabel em direção ao bairro Santana","datetime":"2025-04-13T23:00:00.000Z"},{"latitude":-30.045815025446824,"longitude":-51.209504844898966,"time":"20h15","number":2,"observation":"Avistado indo em direção ao McDonald's","datetime":"2025-04-13T23:15:00.000Z"},{"latitude":-30.03610543049554,"longitude":-51.21586368383292,"time":"22h40","number":3,"observation":"Parque Farroupilha (Redenção)","datetime":"2025-04-14T01:40:00.000Z"},{"latitude":-30.03780064355717,"longitude":-51.218837310992285,"time":"22h50","number":4,"observation":"Correndo em direção à Avenida João Pessoa, saindo da Redenção","datetime":"2025-04-14T01:50:00.000Z"}]},"SEBAS - Copia.csv-14/04/2025-1744996831450":{"id":"SEBAS - Copia.csv-14/04/2025-1744996831450","date":"14/04/2025","fileName":"SEBAS - Copia.csv","color":"#FF5733","visible":true,"points":[{"latitude":-30.02876908298485,"longitude":-51.208085638593744,"time":"10h00","number":1,"observation":"Possivelmente visto na praça em frente a Praça Julio de Castilhos","datetime":"2025-04-14T13:00:00.000Z"},{"latitude":-30.042931215671977,"longitude":-51.21155502722075,"time":"17h00","number":2,"observation":"Visto na rua Laurindo com a Santana. Estava de coleira de ID.","datetime":"2025-04-14T20:00:00.000Z"},{"latitude":-30.042931215671977,"longitude":-51.21155502722075,"time":"18h00","number":3,"observation":"Visto na rua Laurindo com a Santana. Estava de coleira de ID.","datetime":"2025-04-14T21:00:00.000Z"},{"latitude":-30.039759455253137,"longitude":-51.211468132166345,"time":"20h00","number":4,"observation":"Visto na Vieira Castro","datetime":"2025-04-14T23:00:00.000Z"}]},"SEBAS - Copia.csv-15/04/2025-1744996831450":{"id":"SEBAS - Copia.csv-15/04/2025-1744996831450","date":"15/04/2025","fileName":"SEBAS - Copia.csv","color":"#C70039","visible":true,"points":[{"latitude":-30.05414422847241,"longitude":-51.20084362110148,"time":"21h30","number":1,"observation":"Possivelmente visto na Luiz de Camões com a Bento, indo em direção a Igreja Santo Antônio","datetime":"2025-04-16T00:30:00.000Z"},{"latitude":-30.051658123690938,"longitude":-51.20720267116512,"time":"21h42","number":2,"observation":"Possivelmente visto em frente à Átila Pneus. Bento Gonçalves com Vicente da Fontoura.","datetime":"2025-04-16T00:42:00.000Z"},{"latitude":-30.054618593801486,"longitude":-51.200357359157366,"time":"22h15","number":3,"observation":"informação obtida da Panvel da bento (Marina C passou lá 22h20 e confirmaram que viram em direção Agronomia)","datetime":"2025-04-16T01:15:00.000Z"},{"latitude":-30.058177588226624,"longitude":-51.20299995643372,"time":"22h45","number":4,"observation":"subindo a Paulino Chaves em direção à Igreja Santo Antônio","datetime":"2025-04-16T01:45:00.000Z"}]},"SEBAS - Copia.csv-16/04/2025-1744996831450":{"id":"SEBAS - Copia.csv-16/04/2025-1744996831450","date":"16/04/2025","fileName":"SEBAS - Copia.csv","color":"#C70039","visible":true,"points":[{"latitude":-30.05085327491462,"longitude":-51.20933470333193,"time":"07h00","number":1,"observation":"Possivelmente visto no terminal do T6 (Rua Domingos Crescêncio 43 Azenha) na Rua Santana com a Princesa Isabel: pedreiro viu no terminal T6, vindo da Planetário na altura da princesa Isabel","datetime":"2025-04-16T10:00:00.000Z"},{"latitude":-30.050149850002757,"longitude":-51.212272850595745,"time":"08h00","number":2,"observation":"Possivelmente visto em frente ao Asun da Bento Gonçalves (Avenida Bento Gonçalves, 68), caminhando e cheirando o chão, não parecia assustado","datetime":"2025-04-16T11:00:00.000Z"},{"latitude":-30.030245025742982,"longitude":-51.16970074490284,"time":"13h05","number":3,"observation":"Visto por 3 pessoas na praça desembargador La Hire Guerra - Em direção JOSÉ ARANHA / NILO PEÇANHA","datetime":"2025-04-16T16:05:00.000Z"}]},"SEBAS - Copia.csv-17/04/2025-1744996831450":{"id":"SEBAS - Copia.csv-17/04/2025-1744996831450","date":"17/04/2025","fileName":"SEBAS - Copia.csv","color":"#6A3D9A","visible":true,"points":[{"latitude":-30.006363649879876,"longitude":-51.168819065363124,"time":"07h00","number":1,"observation":"Praça da rua Carneiro da Fontoura","datetime":"2025-04-17T10:00:00.000Z"},{"latitude":-30.024908905897703,"longitude":-51.16345035869957,"time":"07h20","number":2,"observation":"Parada de ônibus ali da João Wallig na lateral do shopping","datetime":"2025-04-17T10:20:00.000Z"},{"latitude":-30.02274281192068,"longitude":-51.162445039753905,"time":"17h04","number":3,"observation":"Mensagem no grupo do whatsapp do Anchieta informando que Sebastião foi visto correndo em frente ao Bourbon Country na Av. João Wallig","datetime":"2025-04-17T20:04:00.000Z"}]}},"buffers":[]};
+    
+    // Variáveis globais
+    let map;
+    let routesLayer;
+    let pointsLayer;
+    let bufferLayer;
+    let isRoutesVisible = true;
+    let isBuffersVisible = true;
+    let routes = {};
+    let buffers = [];
+    let availableDates = [];
+    const routeColors = [
+      '#FF0000', // Vermelho forte
+      '#00CC00', // Verde forte
+      '#0000FF', // Azul forte
+      '#FF00FF', // Magenta
+      '#FF6600', // Laranja forte
+      '#9900CC', // Roxo
+      '#00CCFF', // Azul turquesa
+      '#CC0066', // Rosa forte
+      '#00FF00', // Verde limão
+      '#3300FF',  // Azul royal
+      '#990033' // Bordô
+    ];
+    
+    // Inicialização
+    document.addEventListener('DOMContentLoaded', function() {
+      // Inicializar o sidebar toggle para mobile
+      const sidebarToggle = document.getElementById('sidebarToggle');
+      const sidebar = document.getElementById('sidebar');
+      
+      if (sidebarToggle && sidebar) {
+        sidebarToggle.addEventListener('click', function() {
+          sidebar.classList.toggle('active');
+        });
+        
+        // Fechar sidebar quando clicar fora dele em dispositivos móveis
+        document.addEventListener('click', function(event) {
+          const isClickInsideSidebar = sidebar.contains(event.target);
+          const isClickOnToggle = sidebarToggle.contains(event.target);
+          
+          if (!isClickInsideSidebar && !isClickOnToggle && sidebar.classList.contains('active')) {
+            sidebar.classList.remove('active');
+          }
+        });
+      }
+      
+      // Atualizar data de geração
+      document.getElementById('generatedDate').textContent = new Date().toLocaleDateString('pt-BR');
+      document.getElementById('contactInfo').textContent = "Telefone: (xx) xxxxx-xxxx";
+      
+      // Criar mapa
+      map = L.map('map', {
+        zoomControl: false,
+        attributionControl: true
+      }).setView([-30.05, -51.2], 13);
+
+      // Adicionar controles ao mapa
+      L.control.zoom({
+        position: 'topright'
+      }).addTo(map);
+
+      // Adicionar layer base
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19
+      }).addTo(map);
+
+      // Adicionar escala
+      L.control.scale({
+        metric: true,
+        imperial: false,
+        position: 'bottomright'
+      }).addTo(map);
+
+      // Layers para rotas e pontos
+      routesLayer = L.layerGroup().addTo(map);
+      pointsLayer = L.layerGroup().addTo(map);
+      bufferLayer = L.layerGroup().addTo(map);
+      
+      // Event listeners
+      document.getElementById('routesToggle').addEventListener('change', function(e) {
+        isRoutesVisible = e.target.checked;
+        updateMapLayers();
+      });
+      
+      document.getElementById('bufferToggle').addEventListener('change', function(e) {
+        isBuffersVisible = e.target.checked;
+        updateMapLayers();
+      });
+      
+      document.getElementById('dateFilter').addEventListener('change', function(e) {
+        updateMapLayers();
+      });
+      
+      // Processar e exibir os dados
+      processData(petTrackData);
+    });
+    
+    // Processar dados da aplicação
+    function processData(data) {
+      // Extrair rotas
+      if (data.routes) {
+        routes = data.routes;
+        
+        // Extrair datas disponíveis
+        const datesSet = new Set();
+        for (const routeId in routes) {
+          const route = routes[routeId];
+          if (route.date) {
+            datesSet.add(route.date);
+          }
+        }
+        
+        availableDates = Array.from(datesSet).sort();
+        
+        // Preencher selector de datas
+        const dateSelector = document.getElementById('dateFilter');
+        dateSelector.innerHTML = '<option value="all">Todas as datas</option>';
+        
+        availableDates.forEach(date => {
+          const option = document.createElement('option');
+          option.value = date;
+          option.textContent = date;
+          dateSelector.appendChild(option);
+        });
+      }
+      
+      // Extrair buffers
+      if (data.buffers && data.buffers.length > 0) {
+        buffers = data.buffers;
+        
+        // Atualizar informações de buffer
+        const bufferDetails = document.getElementById('bufferDetails');
+        if (buffers.length > 0) {
+          let bufferHtml = '<ul class="list-unstyled">';
+          buffers.forEach((buffer, index) => {
+            bufferHtml += '<li><i class="bi bi-bullseye"></i> Área #' + (index + 1) + ': ' + buffer.distance.toFixed(2) + ' km de raio</li>';
+          });
+          bufferHtml += '</ul>';
+          bufferDetails.innerHTML = bufferHtml;
+        } else {
+          bufferDetails.innerHTML = '<p>Nenhuma área de busca definida.</p>';
+        }
+      }
+      
+      // Criar lista de rotas visível
+      updateRouteList();
+      
+      // Renderizar no mapa
+      updateMapLayers();
+    }
+    
+    // Atualizar lista de rotas
+    function updateRouteList() {
+      const routeList = document.getElementById('routeList');
+      routeList.innerHTML = '';
+      
+      // Se não houver rotas
+      if (Object.keys(routes).length === 0) {
+        routeList.innerHTML = '<div class="alert alert-info"><i class="bi bi-info-circle"></i> Nenhuma rota disponível</div>';
+        return;
+      }
+      
+      // Filtrar por data
+      const selectedDate = document.getElementById('dateFilter').value;
+      let visibleRoutesCount = 0;
+      
+      // Criar item para cada rota
+      for (const routeId in routes) {
+        const route = routes[routeId];
+        
+        // Filtrar por data
+        if (selectedDate !== 'all' && route.date !== selectedDate) {
+          continue;
+        }
+        
+        // Contar pontos
+        const pointsCount = route.points ? route.points.length : 0;
+        
+        // Criar elemento da rota
+        const routeItem = document.createElement('div');
+        routeItem.className = 'route-item';
+        routeItem.dataset.id = route.id;
+        
+        const hiddenClass = !route.visible ? 'route-hidden' : '';
+        const eyeIcon = route.visible ? 'bi-eye' : 'bi-eye-slash';
+        const visibilityTitle = route.visible ? 'Ocultar' : 'Mostrar';
+        
+        routeItem.innerHTML = '<div class="route-header">' +
+          '<span class="route-name ' + hiddenClass + '">' +
+          '<span class="route-color" style="background-color:' + route.color + ';"></span>' +
+          route.date + ' (' + pointsCount + ' pontos)' +
+          '</span>' +
+          '<div class="route-controls">' +
+          '<button class="visibility-btn" title="' + visibilityTitle + ' rota">' +
+          '<i class="bi ' + eyeIcon + '"></i>' +
+          '</button>' +
+          '<button class="center-btn" title="Centralizar no mapa">' +
+          '<i class="bi bi-arrows-fullscreen"></i>' +
+          '</button>' +
+          '</div>' +
+          '</div>';
+        
+        // Adicionar evento de toggle de visibilidade
+        routeItem.querySelector('.visibility-btn').addEventListener('click', function() {
+          route.visible = !route.visible;
+          
+          // Atualizar ícone e estilo
+          const icon = this.querySelector('i');
+          icon.classList.toggle('bi-eye', route.visible);
+          icon.classList.toggle('bi-eye-slash', !route.visible);
+          
+          // Atualizar estilo do nome
+          routeItem.querySelector('.route-name').classList.toggle('route-hidden', !route.visible);
+          
+          // Atualizar mapa
+          updateMapLayers();
+        });
+        
+        // Adicionar evento para centralizar no mapa
+        routeItem.querySelector('.center-btn').addEventListener('click', function() {
+          if (route.points && route.points.length > 0) {
+            const bounds = L.latLngBounds(
+              route.points.map(p => [p.latitude, p.longitude])
+            );
+            map.fitBounds(bounds, {padding: [50, 50]});
+            
+            // Em dispositivos móveis, fechar o sidebar ao centralizar
+            if (window.innerWidth <= 992) {
+              document.getElementById('sidebar').classList.remove('active');
+            }
+          }
+        });
+        
+        // Centralizar ao clicar no nome
+        routeItem.querySelector('.route-name').addEventListener('click', function() {
+          if (route.points && route.points.length > 0) {
+            const bounds = L.latLngBounds(
+              route.points.map(p => [p.latitude, p.longitude])
+            );
+            map.fitBounds(bounds, {padding: [50, 50]});
+            
+            // Em dispositivos móveis, fechar o sidebar ao centralizar
+            if (window.innerWidth <= 992) {
+              document.getElementById('sidebar').classList.remove('active');
+            }
+          }
+        });
+        
+        routeList.appendChild(routeItem);
+        visibleRoutesCount++;
+      }
+      
+      // Se não houver rotas visíveis com o filtro atual
+      if (visibleRoutesCount === 0) {
+        routeList.innerHTML = '<div class="alert alert-warning"><i class="bi bi-exclamation-circle"></i> Nenhuma rota encontrada para esta data</div>';
+      }
+    }
+    
+    // Atualizar camadas do mapa
+    function updateMapLayers() {
+      // Limpar camadas
+      routesLayer.clearLayers();
+      pointsLayer.clearLayers();
+      bufferLayer.clearLayers();
+      
+      // Obter filtro de data
+      const selectedDate = document.getElementById('dateFilter').value;
+      
+      // Marcadores para ajustar visualização
+      let allPoints = [];
+      let isAnyRouteVisible = false;
+      let totalPointsVisible = 0;
+      let lastSightingDate = null;
+      let lastSightingTime = null;
+      
+      // Processar rotas
+      let colorIndex = 0;
+      for (const routeId in routes) {
+        const route = routes[routeId];
+        
+        // Filtrar por data e visibilidade
+        if ((!isRoutesVisible) || (selectedDate !== 'all' && route.date !== selectedDate) || !route.visible) {
+          continue;
+        }
+        
+        isAnyRouteVisible = true;
+        
+        // Pontos da rota
+        const points = route.points;
+        if (!points || points.length === 0) continue;
+        
+        totalPointsVisible += points.length;
+        
+        // Usar cor da rota ou atribuir uma
+        const routeColor = route.color || routeColors[colorIndex % routeColors.length];
+        colorIndex++;
+        
+        // Criar coordenadas da linha
+        const lineCoords = points.map(point => [point.latitude, point.longitude]);
+        
+        // Desenhar linha da rota
+        L.polyline(lineCoords, {
+          color: routeColor,
+          weight: 4,
+          opacity: 0.8,
+          smoothFactor: 1
+        }).addTo(routesLayer);
+        
+        // Adicionar marcadores numerados para os pontos
+        points.forEach(point => {
+          // Coletar para ajustar visualização
+          allPoints.push([point.latitude, point.longitude]);
+          
+          // Criar marcador personalizado com número
+          const markerIcon = L.divIcon({
+            className: 'numbered-marker',
+            html: '<div style="background-color:' + routeColor + ';">' + point.number + '</div>',
+            iconSize: [25, 25],
+            iconAnchor: [12, 12]
+          });
+          
+          const marker = L.marker([point.latitude, point.longitude], {
+            icon: markerIcon
+          }).addTo(pointsLayer);
+          
+          // Adicionar popup com informações
+          const observationText = point.observation ? '<br><strong>Observação:</strong> ' + point.observation : '';
+          const popupContent = '<strong>Ponto #' + point.number + '</strong><br>' + 
+            'Data: ' + route.date + '<br>' +
+            'Hora: ' + point.time + observationText;
+          
+          marker.bindPopup(popupContent);
+          
+          // Verificar se é o último avistamento (pela data/hora)
+          if (!lastSightingDate || 
+              (route.date > lastSightingDate) || 
+              (route.date === lastSightingDate && point.time > lastSightingTime)) {
+            lastSightingDate = route.date;
+            lastSightingTime = point.time;
+          }
+        });
+      }
+      
+      // Atualizar informações de status na caixa de informações
+      const statusText = document.getElementById('statusText');
+      const lastSeen = document.getElementById('lastSeen');
+      
+      if (totalPointsVisible > 0) {
+        // Exibir informações relevantes
+        statusText.textContent = totalPointsVisible + ' pontos de avistamento visíveis';
+        
+        if (lastSightingDate && lastSightingTime) {
+          lastSeen.textContent = lastSightingDate + ' às ' + lastSightingTime;
+        } else {
+          lastSeen.textContent = "Data desconhecida";
+        }
+      } else {
+        statusText.textContent = "Nenhum ponto visível";
+        lastSeen.textContent = "Não disponível";
+      }
+      
+      // Processar buffers (se visíveis)
+      if (isBuffersVisible && buffers && buffers.length > 0) {
+        buffers.forEach(buffer => {
+          try {
+            // Verificar se é visível
+            if (buffer.visible === false) return;
+            
+            // Adicionar buffer ao mapa
+            if (buffer.geojsonStr) {
+              const bufferGeoJSON = JSON.parse(buffer.geojsonStr);
+              L.geoJSON(bufferGeoJSON, {
+                style: {
+                  color: buffer.color || '#E53935',
+                  weight: 2,
+                  opacity: 0.7,
+                  fillColor: buffer.color || '#E53935',
+                  fillOpacity: 0.2
+                }
+              }).addTo(bufferLayer);
+            }
+            
+            // Adicionar marcador do centro
+            if (buffer.centerLat !== undefined && buffer.centerLng !== undefined) {
+              L.circleMarker([buffer.centerLat, buffer.centerLng], {
+                radius: 5,
+                color: buffer.color || '#E53935',
+                fillColor: buffer.color || '#E53935',
+                fillOpacity: 1
+              }).addTo(bufferLayer);
+              
+              // Incluir centro do buffer para ajuste de visualização
+              allPoints.push([buffer.centerLat, buffer.centerLng]);
+            }
+          } catch (error) {
+            console.error("Erro ao processar buffer:", error);
+          }
+        });
+      }
+      
+      // Ajustar visualização para incluir todos os pontos visíveis
+      if (allPoints.length > 0) {
+        map.fitBounds(L.latLngBounds(allPoints), { padding: [50, 50] });
+      } else if (!isAnyRouteVisible) {
+        // Se nenhuma rota estiver visível, mostrar mensagem
+        const center = map.getCenter();
+        L.popup()
+          .setLatLng(center)
+          .setContent('<strong>Nenhum ponto visível</strong><br>Selecione outra data ou ative as rotas.')
+          .openOn(map);
+      }
+    }
+  </script>
+</body>
+</html>
